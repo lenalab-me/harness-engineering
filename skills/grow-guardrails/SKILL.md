@@ -1,11 +1,11 @@
 ---
 name: grow-guardrails
-description: 新しいプロジェクトを始めるとき、または作業中に「ひとつ触ると別の所が壊れる」「同じ指摘を2回した」「動いたと言われたのに動かない」のような繰り返しの壊れ方が出たときに使う。壊れるのを文章ではなく関所（Schema・テスト・check・ロック）で止め、関所は痛みが出た分だけ足す。持ち主の Web アプリ（network-designer）で固まったやり方。
+description: 新しいプロジェクトを始めるとき、作業中に「ひとつ触ると別の所が壊れる」「同じ指摘を2回した」「動いたと言われたのに動かない」のような繰り返しの壊れ方が出たとき、機能の区切りで、繰り返した指摘を関所にするか振り返るときに使う。壊れるのを文章ではなく関所（Schema・テスト・check・ロック）で止め、関所は痛みが出た分だけ足す。
 ---
 
 # 関所を育てる
 
-関所は最初に全部入れない。始めに決めるのは少しだけで、あとは痛みが出たときに1つずつ足す。決まりは文章より機械で落とす。文章には「どこで落ちるか」と、機械で確かめられないことだけを書く。
+関所は最初に全部入れない。始めに決めるのは少しだけで、あとは痛みが出たときに1つずつ足す。決まりは文章より機械で落とす。文章には「どこで落ちるか」と、機械で確かめられないことだけを書く。持ち主の Web アプリ（network-designer）で固まったやり方。
 
 ## 始めるときに決めること
 
@@ -48,5 +48,5 @@ description: 新しいプロジェクトを始めるとき、または作業中�
 機能の区切りで、git log・記憶・会話から「2回以上した指摘」「利用者が画面で踏んだ不具合」を数える。関所にできるものは提案する。できないもの（何を作るかの判断、push の確認など）だけを文章に残す。
 
 - 区切りの流れは `agentlog timeline --repo . --since 前の区切り` で、利用者の発言とコミットを時刻順に見る。
-- 会話は `agentlog search 'REGEX' --who user --project NAME` で探し、`agentlog show ID --at TIME` で前後を読む。消えたログは `--root ~/.local/share/agent-log-archive/claude/projects` で写しを探す。
-- 同じ失敗のくり返しは `agentlog repeats --project NAME` で数える。関所を入れた時刻を `--since` に渡せば、効いたかどうかが分かる。
+- 会話は `agentlog search 'REGEX' --who user --project NAME` で探し、`agentlog show ID --at TIME` で前後を読む。消えたログは（写しがあれば）`--root ~/.local/share/agent-log-archive/claude/projects` で写しを探す。
+- 同じ失敗のくり返しは `agentlog repeats --project NAME` で数える。効いたかどうかは、関所を入れた時刻で2回に分けて流し（`--since 前の区切り --until 時刻` と `--since 時刻`）、前後を比べる。道具ごとの `agentlog tool`、日ごとの `agentlog daily` も同じように使える。
