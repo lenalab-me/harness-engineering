@@ -36,20 +36,29 @@ Ubuntu（WSL2 を含む）なら、apt を先に入れてから Rust を入れ�
 ```sh
 sudo apt update && sudo apt install -y build-essential git curl ca-certificates python3
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-. "$HOME/.cargo/env"
 ```
 
-macOS なら `xcode-select --install`、Rust は上と同じ `curl … | sh`。
+macOS なら、Command Line Tools（C のリンカ、git、python3）を入れてから Rust を入れる。`xcode-select --install` はダイアログを出してすぐ戻るので、ダイアログで入れ終えてから次の行を流す（入っていれば何もしない）。
+
+```sh
+xcode-select -p >/dev/null 2>&1 || xcode-select --install
+```
+
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+```
+
+rustup は PATH を足す行をシェルの設定に書くが、今開いているシェルには効かない。Claude Code の Bash は呼び出しのたびに環境を引き継がないので、Claude Code を開き直すまでは、cargo と入れた道具を使うコマンドの頭に `. "$HOME/.cargo/env" &&` を付ける（以下のブロックには付けてある。rustup 以外で入れた Rust なら外す）。
 
 確かめ（順に流し、どれかが失敗したらそこで止める）：
 
 ```sh
-cc --version | head -1 && cargo --version && python3 --version
+. "$HOME/.cargo/env" && cc --version | head -1 && cargo --version && python3 --version
 ```
 
 ## 2. リポジトリを取ってくる
 
-置き場所は自由。以下では `~/src` に置く。
+置き場所は自由。以下では `~/src` に置く。`~/src` 以外に置くなら、5・6 のパス（`~/src/...`）も読み替える。一時フォルダ（`/tmp`、`mktemp -d`）には置かない（5 の hook は一時フォルダのファイルを止めないので、確かめが黙って何も出さない）。
 
 ```sh
 mkdir -p ~/src && cd ~/src
@@ -59,7 +68,7 @@ for r in harness-engineering rpatch devsrv agentlog; do git clone https://github
 ## 3. 道具をビルドして入れる
 
 ```sh
-for r in rpatch devsrv agentlog; do (cd ~/src/$r && cargo install --locked --path .) || break; done
+. "$HOME/.cargo/env" && for r in rpatch devsrv agentlog; do (cd ~/src/$r && cargo install --locked --path .) || break; done
 ```
 
 `~/.cargo/bin` が PATH に入っていること（rustup が入れる）。
@@ -67,13 +76,13 @@ for r in rpatch devsrv agentlog; do (cd ~/src/$r && cargo install --locked --pat
 確かめ（それぞれ、出力の1行目が道具の説明になり、終了コード 0）：
 
 ```sh
-rpatch --help | head -3 && devsrv --help | head -3 && agentlog --help | head -3
+. "$HOME/.cargo/env" && rpatch --help | head -3 && devsrv --help | head -3 && agentlog --help | head -3
 ```
 
-動きの確かめ：
+動きの確かめ（1回の呼び出しで流す）：
 
 ```sh
-d=$(mktemp -d) && printf 'one\ntwo\n' > "$d/a.txt"
+. "$HOME/.cargo/env" && d=$(mktemp -d) && printf 'one\ntwo\n' > "$d/a.txt"
 rpatch "$d/a.txt" <<'EOF' && cat "$d/a.txt"
 <<<<<<< OLD
 two
@@ -96,15 +105,15 @@ agentlog rules --count; echo "agentlog: $?"
 ```markdown
 # CLI tools
 
-- To change a file, always use `rpatch` (format: `rpatch --help`; `<<<<<<< OLD part` covers part of a line). Chain follow-up commands on the opening line (`rpatch <<'EOF' && …`): a command after the closing EOF runs even when the edit failed. Don't use a python heredoc
-- Background processes (dev servers, watchers): `devsrv start NAME --port auto -- CMD {port}` returns the URL once it answers; then `devsrv logs`, `ls`, `wait URL|port N`, `who PORT`, `stop NAME`. Use them instead of `cmd &`, `sleep` loops, `lsof -i` and `pkill` (`devsrv --help`: a summary; `devsrv help COMMAND` for one command)
+- Edit files: To change a file, always use `rpatch` (format: `rpatch --help`; `<<<<<<< OLD part` covers part of a line). Chain follow-up commands on the opening line (`rpatch <<'EOF' && …`): a command after the closing EOF runs even when the edit failed. Don't use a python heredoc
+- Background processes (dev servers, watchers): `devsrv start NAME --port auto -- CMD {port}` returns the URL once it answers; then `devsrv logs`, `ls`, `who PORT`, `stop NAME`. To wait for anything, `devsrv wait URL [--status 200]`, `wait port N`, `wait file PATH REGEX` or `wait cmd -- CMD` (until it exits 0). Use them instead of `cmd &`, `sleep`/`until` loops, `lsof -i` and `pkill` (`devsrv --help`: a summary; `devsrv help COMMAND` for one command)
 - Past Claude Code sessions (what was said, why something was decided): `agentlog search REGEX --who user` lists matches with time and session id, then `agentlog show ID --at TIME` reads the talk around one. `agentlog timeline --repo DIR --since WHEN` lines up the user's words and the repo's commits by time (`agentlog --help`: a summary; `agentlog help COMMAND` for one command). Reach for them when the user points to earlier work, and before asking the user something that may already have been decided
 - Memory of other projects and rules: `agentlog memory REGEX [--type feedback]` searches every project's memory files; use it when needed, not every session. Before adding a rule to memory or AGENTS.md, `agentlog rules --repo .` lists the prohibitions a session here reads, so you can rewrite a clashing one instead of adding another
 ```
 
 Codex を使うなら `~/.codex/AGENTS.md` にも同じ行を写す。
 
-確かめ：新しいセッションを始めて「devsrv で python3 -m http.server を立てて、URL を教えて、止めて」と頼み、`devsrv start` が使われること。
+確かめ：新しいセッションを始めて「python3 -m http.server を裏で立てて、URL を教えて、止めて」と頼み（道具の名前は出さない）、`devsrv start` が使われること。
 
 ## 5. hook を入れる（任意）
 
@@ -155,5 +164,6 @@ ln -sfn ~/src/rpatch/plugin/skills/rpatch ~/.claude/skills/rpatch
 ## 7. 入れたあと
 
 - 何が効いたかを測るなら、agentlog の [使いどころ](https://github.com/lenalab-me/agentlog/blob/main/docs/recipes.md) に、道具や案内を入れた時刻を `--since` に渡して前後を比べるやり方がある。
+- 入れたのに使われていないものは `agentlog unused --since 30d` で見る（入れた MCP・スキル・「CLI tools」に挙げた道具を、使われた回数の少ない順に並べる）。
 - 道具を新しくするときは `cd ~/src/<道具> && git pull && cargo install --locked --path .`。
 - うまく動かなかったところは、持ち主に出力ごと知らせる（この手順を直す）。
