@@ -52,3 +52,4 @@ API と DB を持つアプリなら、1〜3 を API と DB に当てはめたル
 - 区切りの流れは `agentlog timeline --repo . --since 前の区切り` で、利用者の発言とコミットを時刻順に見る。
 - 会話は `agentlog search 'REGEX' --who user --project NAME` で探し、`agentlog show ID --at TIME` で前後を読む。消えたログは（写しがあれば）`--root ~/.local/share/agent-log-archive/claude/projects` で写しを探す。
 - 同じ失敗のくり返しは `agentlog repeats --project NAME` で数える。効いたかどうかは、関所を入れた時刻で2回に分けて流し（`--since 前の区切り --until 時刻` と `--since 時刻`）、前後を比べる。道具ごとの `agentlog tool`、日ごとの `agentlog daily` も同じように使える。
+- 待ちや、毎回その場で組み立てているコマンドを減らすときは、[speedups.md](speedups.md) の 4 段（見つける・数字で確かめる・道具にする・効いたかを見る）で進める。
