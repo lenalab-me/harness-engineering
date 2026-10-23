@@ -1,6 +1,6 @@
 # 自分の環境に入れる
 
-このリポジトリと、そこから使う自作の道具（rpatch・devsrv・agentlog）とスキルを、別の人の環境に入れる手順。読むのはその人のコーディングエージェント（Claude Code を想定）。上から順に進め、各段の「確かめ」が通ってから次へ進む。通らなければ、そこで止めて利用者に出力を見せる。
+このリポジトリと、そこから使う自作の道具（rpatch・devsrv・agentlog・wtprune）とスキルを、別の人の環境に入れる手順。読むのはその人のコーディングエージェント（Claude Code を想定）。上から順に進め、各段の「確かめ」が通ってから次へ進む。通らなければ、そこで止めて利用者に出力を見せる。
 
 このリポジトリの `CLAUDE.md` は、持ち主がこのリポジトリを手入れするための決まり。入れるときには従わなくてよい（読むと何をしているかは分かる）。
 
@@ -12,6 +12,7 @@
 | rpatch の hook（`edit_guard.py`） | 確かめのない編集（`sed -i`、python の置換、追跡しているファイルへの `cat >`）を止め、rpatch を案内する | Claude Code の設定 |
 | devsrv | 開発用サーバーの起動・待ち・停止。`cmd &`・`sleep` のループ・`pkill` の代わり | Rust でビルド |
 | agentlog | Claude Code（と Codex）のセッションのログから、くり返しの失敗、言ったこと、メモリ、禁止ルールを引く | Rust でビルド |
+| wtprune | T3 Code が作った worktree とブランチのうち、マージ済みで、もう誰も使っていないものだけを消す。T3 Code を使う人向け | Rust でビルド（リポジトリは非公開） |
 | grow-guardrails | プロジェクトの関所（Schema・テスト・check）を、痛みが出た分だけ育てる手順 | スキル |
 | tidy-rules | メモリ・AGENTS.md・CLAUDE.md のルールの棚卸し | スキル |
 
@@ -29,7 +30,7 @@ Windows なら WSL2 の Ubuntu に Claude Code を入れ、その中で進める
 
 ## 1. 前提
 
-要るのは、C のリンカ、git、curl、python3（hook を使うなら）、Rust の stable（1.88 以上）。リポジトリはどれも公開なので、GitHub のアカウントはいらない。
+要るのは、C のリンカ、git、curl、python3（hook を使うなら）、Rust の stable（1.88 以上）。wtprune（7）のほかはリポジトリが公開なので、GitHub のアカウントはいらない。
 
 Ubuntu（WSL2 を含む）なら、apt を先に入れてから Rust を入れる（逆だと rustup がリンカが無いと警告する）。
 
@@ -161,7 +162,32 @@ ln -sfn ~/src/rpatch/plugin/skills/rpatch ~/.claude/skills/rpatch
 
 確かめ：新しいセッションで `/grow-guardrails` と打ち（または「このプロジェクトの関所を見直して」と頼み）、スキルが読まれること。
 
-## 7. 入れたあと
+## 7. wtprune を入れる（任意。T3 Code を使う人だけ）
+
+wtprune は、T3 Code が作った worktree（`~/.t3/worktrees/<project>/<name>`）とそのブランチを、次の 3 つを全部満たすものだけ消す。PR がマージ済み、変更がなく無視されたファイルはビルド出力だけ、その worktree を使う T3 のスレッドが全部終わっている（一番上のスレッドは、利用者が settle かアーカイブしたときだけ終わりとみなす）。T3 の状態（`~/.t3/userdata/statev2.sqlite` と `~/.t3/bin/t3`）を読むので、T3 Code が無い環境では判断できず、何も消さずに止まる（終了コード 3）。T3 Code を使わないなら、この段は飛ばす。
+
+リポジトリ（`lenalab-me/wtprune`）は非公開で、持ち主のほかは clone できない。clone できなければ、この段は飛ばす。持ち主の macOS でだけ使っている。
+
+要るのは、1 の Rust に加えて、`gh`（ログイン済み。PR がマージ済みかを見る）と `sqlite3`（macOS には最初からある）。
+
+```sh
+gh repo clone lenalab-me/wtprune ~/src/wtprune
+. "$HOME/.cargo/env" && cd ~/src/wtprune && cargo install --locked --path .
+```
+
+確かめ（見積もりだけで、何も消さない。1 行目が結果で、続いて消すもの・残すものと理由が 1 行ずつ並び、終了コード 0。3 なら T3・gh・git のどれかが読めていない）：
+
+```sh
+. "$HOME/.cargo/env" && wtprune; echo "wtprune: $?"
+```
+
+エージェントへの案内は、4 と同じ `~/.claude/CLAUDE.md` の「CLI tools」に次の行を足す。
+
+```markdown
+- Cleaning up T3 worktrees and merged branches: `wtprune` lists which worktrees under `~/.t3/worktrees/` and which local branches would go, with the reason for each one kept; `wtprune --apply` removes them (`--repo DIR` for one repository). It removes only what has a merged PR, holds nothing but build output, and whose T3 threads have ended (a top-level thread only once the user settles or archives it). Use it instead of `git worktree remove` and `git branch -D` by hand (`wtprune --help`)
+```
+
+## 8. 入れたあと
 
 - 何が効いたかを測るなら、agentlog の [使いどころ](https://github.com/lenalab-me/agentlog/blob/main/docs/recipes.md) に、道具や案内を入れた時刻を `--since` に渡して前後を比べるやり方がある。
 - 入れたのに使われていないものは `agentlog unused --since 30d` で見る（入れた MCP・スキル・「CLI tools」に挙げた道具を、使われた回数の少ない順に並べる）。
